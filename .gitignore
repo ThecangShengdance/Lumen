@@ -1,0 +1,21 @@
+# Build products
+build/
+dist/
+.build/
+DerivedData/
+*.dSYM/
+*.xcuserstate
+xcuserdata/
+
+# macOS
+.DS_Store
+.AppleDouble
+__MACOSX/
+
+# Local test artifacts
+.build/testdata*/
+.build/LumenTest.app
+/tmp/lumen-*.log
+
+# README uses optimized .jpg screenshots; ignore raw render captures
+screenshots/*.png
