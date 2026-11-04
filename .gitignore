@@ -19,3 +19,6 @@ __MACOSX/
 
 # README uses optimized .jpg screenshots; ignore raw render captures
 screenshots/*.png
+
+# Local promo workspace (large video sources/renders, not part of the app)
+promo/
