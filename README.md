@@ -45,8 +45,9 @@ Steam 大屏幕的实用信息层级，并加入手柄导航、主题切换与�
 
 ## 下载
 
-前往 [GitHub Releases](https://github.com/ThecangShengdance/Lumen/releases/latest) 下载最新的
-`Lumen-1.0.1.zip`。当前预编译包为 Apple Silicon（arm64）版本，Intel Mac 请从源码构建。
+前往 [GitHub Releases](https://github.com/ThecangShengdance/Lumen/releases) 查看可用的预编译包；
+当前源码版本为 `1.0.1`。若还没有对应版本的可执行文件，请按下方「构建」从源码生成。预编译包为
+Apple Silicon（arm64）版本，Intel Mac 请从源码构建。
 
 首次打开若被 macOS 拦截，请前往「系统设置 → 隐私与安全性」选择「仍要打开」。应用使用 ad-hoc
 签名、未经过 Apple 公证。
