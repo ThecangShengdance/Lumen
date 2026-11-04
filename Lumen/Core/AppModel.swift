@@ -101,7 +101,7 @@ final class AppModel: ObservableObject {
         if arguments.contains("--no-boot") || arguments.contains("--library")
             || arguments.contains("--detail") || arguments.contains("--settings")
             || arguments.contains("--editor") || arguments.contains("--new-editor")
-            || arguments.contains("--render") {
+            || arguments.contains("--trailer") || arguments.contains("--render") {
             isBooting = false
         }
         if let flag = arguments.firstIndex(of: "--theme"),
@@ -118,6 +118,13 @@ final class AppModel: ObservableObject {
         }
         if arguments.contains("--detail"), detailGameID == nil {
             detailGameID = selectedGameID
+        }
+        if arguments.contains("--trailer") {
+            detailGameID = detailGameID ?? selectedGameID
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { [weak self] in
+                guard let self, self.detailGame?.trailerPath != nil else { return }
+                self.isTrailerPresented = true
+            }
         }
         if arguments.contains("--settings") {
             isSettingsPresented = true

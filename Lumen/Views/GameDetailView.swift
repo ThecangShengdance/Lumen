@@ -341,7 +341,7 @@ private struct TrailerPlayerOverlay: View {
                 }
                 .padding(.horizontal, 6)
 
-                VideoPlayer(player: player)
+                TrailerPlayerView(player: player)
                     .frame(maxWidth: 1120, maxHeight: 660)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .overlay {
@@ -358,5 +358,26 @@ private struct TrailerPlayerOverlay: View {
             player.pause()
             player.replaceCurrentItem(with: nil)
         }
+    }
+}
+
+
+// AVKit's SwiftUI VideoPlayer can abort during Swift metadata initialization on
+// newer macOS builds. AVPlayerView is the stable AppKit path and keeps native controls.
+private struct TrailerPlayerView: NSViewRepresentable {
+    let player: AVPlayer
+
+    func makeNSView(context: Context) -> AVPlayerView {
+        let view = AVPlayerView()
+        view.player = player
+        view.controlsStyle = .floating
+        view.videoGravity = .resizeAspect
+        view.showsFullScreenToggleButton = true
+        view.allowsPictureInPicturePlayback = true
+        return view
+    }
+
+    func updateNSView(_ view: AVPlayerView, context: Context) {
+        if view.player !== player { view.player = player }
     }
 }

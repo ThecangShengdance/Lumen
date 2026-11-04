@@ -122,6 +122,7 @@ struct AppSettings: Codable, Equatable {
     var motionEnabled: Bool = true
     var grainEnabled: Bool = true
     var clockVisible: Bool = true
+    var launchFullScreen: Bool = true
     var hapticsEnabled: Bool = true
     var ambientIntensity: Double = 0.92
     var didSeedShowcase: Bool = false
@@ -135,6 +136,7 @@ struct AppSettings: Codable, Equatable {
         motionEnabled = try c.decodeIfPresent(Bool.self, forKey: .motionEnabled) ?? true
         grainEnabled = try c.decodeIfPresent(Bool.self, forKey: .grainEnabled) ?? true
         clockVisible = try c.decodeIfPresent(Bool.self, forKey: .clockVisible) ?? true
+        launchFullScreen = try c.decodeIfPresent(Bool.self, forKey: .launchFullScreen) ?? true
         hapticsEnabled = try c.decodeIfPresent(Bool.self, forKey: .hapticsEnabled) ?? true
         ambientIntensity = try c.decodeIfPresent(Double.self, forKey: .ambientIntensity) ?? 0.92
         didSeedShowcase = try c.decodeIfPresent(Bool.self, forKey: .didSeedShowcase) ?? false

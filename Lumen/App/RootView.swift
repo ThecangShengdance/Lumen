@@ -80,7 +80,7 @@ struct RootView: View {
         }
         .environment(\.lumenPalette, model.palette)
         .frame(minWidth: 1180, minHeight: 760)
-        .background(WindowConfigurator())
+        .background(WindowConfigurator(launchFullScreen: model.settings.launchFullScreen, isBooting: model.isBooting))
         .preferredColorScheme(.dark)
         .animation(.lumen, value: model.detailGameID)
         .animation(.lumen, value: model.isEditorPresented)

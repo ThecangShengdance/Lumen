@@ -377,24 +377,43 @@ struct LumenMark: View {
 
 // MARK: - Window chrome
 
+private final class WindowProbeView: NSView {
+    var onWindow: ((NSWindow) -> Void)?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if let window { onWindow?(window) }
+    }
+}
+
 struct WindowConfigurator: NSViewRepresentable {
+    var launchFullScreen: Bool = false
+    var isBooting: Bool = false
+
+    final class Coordinator {
+        var didScheduleLaunchState = false
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
     func makeNSView(context: Context) -> NSView {
-        let view = NSView()
+        let view = WindowProbeView()
+        view.onWindow = { window in
+            configure(window, coordinator: context.coordinator)
+        }
         DispatchQueue.main.async {
             guard let window = view.window else { return }
-            configure(window)
+            configure(window, coordinator: context.coordinator)
         }
         return view
     }
 
     func updateNSView(_ view: NSView, context: Context) {
-        DispatchQueue.main.async {
-            guard let window = view.window else { return }
-            configure(window)
-        }
+        guard let window = view.window else { return }
+        configure(window, coordinator: context.coordinator)
     }
 
-    private func configure(_ window: NSWindow) {
+    private func configure(_ window: NSWindow, coordinator: Coordinator) {
         window.title = "Lumen"
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
@@ -406,10 +425,26 @@ struct WindowConfigurator: NSViewRepresentable {
         window.standardWindowButton(.miniaturizeButton)?.isHidden = true
         window.standardWindowButton(.zoomButton)?.isHidden = true
         window.hasShadow = true
-        window.collectionBehavior.insert(.fullScreenPrimary)
         if window.frame.width < 1180 {
             window.setContentSize(NSSize(width: 1440, height: 900))
             window.center()
+        }
+
+        // Apply the startup preference once, after the boot overlay has finished.
+        // AppKit can restore a full-screen window even when the preference is off,
+        // so enforce the desired state on a short delay rather than only on entry.
+        if !isBooting,
+           !coordinator.didScheduleLaunchState,
+           window.styleMask.contains(.titled) {
+            coordinator.didScheduleLaunchState = true
+            let desiredFullScreen = launchFullScreen
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak window] in
+                guard let window, window.styleMask.contains(.titled) else { return }
+                let isFullScreen = window.styleMask.contains(.fullScreen)
+                guard desiredFullScreen != isFullScreen else { return }
+                window.collectionBehavior.insert(.fullScreenPrimary)
+                window.toggleFullScreen(nil)
+            }
         }
     }
 }

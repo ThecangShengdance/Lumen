@@ -325,7 +325,9 @@ struct WindowButton: View {
             switch kind {
             case .close: window.performClose(nil)
             case .minimize: window.miniaturize(nil)
-            case .zoom: window.toggleFullScreen(nil)
+            case .zoom:
+                window.collectionBehavior.insert(.fullScreenPrimary)
+                window.toggleFullScreen(nil)
             }
         } label: {
             ZStack {

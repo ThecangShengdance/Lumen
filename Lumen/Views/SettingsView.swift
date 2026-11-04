@@ -437,6 +437,13 @@ struct SettingsView: View {
                     subtitle: "使用触控板时提供轻微震动",
                     isOn: $model.settings.hapticsEnabled
                 )
+                divider
+                settingsToggle(
+                    icon: "arrow.up.left.and.arrow.down.right",
+                    title: "启动时全屏",
+                    subtitle: "下次启动直接进入全屏，也可以随时用系统快捷键切换",
+                    isOn: $model.settings.launchFullScreen
+                )
             }
 
             VStack(alignment: .leading, spacing: 12) {
@@ -532,7 +539,7 @@ struct SettingsView: View {
                         .font(LumenFont.display(34, weight: .semibold))
                         .tracking(-1)
                         .foregroundStyle(.white.opacity(0.95))
-                    Text("Version 1.0.0 · Built for macOS")
+                    Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.1") · Built for macOS")
                         .font(LumenFont.mono(9))
                         .foregroundStyle(.white.opacity(0.3))
                 }
