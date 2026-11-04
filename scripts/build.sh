@@ -8,18 +8,17 @@ mkdir -p .build/tmp
 
 # The DSH workspace sandbox blocks nested sandbox-exec, which breaks Swift
 # macro expansion. Only disable the compiler sandbox in that environment.
-EXTRA_FLAGS=()
+XCODE_ARGS=(
+  -project Lumen.xcodeproj
+  -scheme Lumen
+  -configuration "$CONFIG"
+  -derivedDataPath build
+)
 if [[ "${DSH_SHELL:-0}" == "1" ]]; then
-  EXTRA_FLAGS+=(OTHER_SWIFT_FLAGS='$(inherited) -disable-sandbox')
+  XCODE_ARGS+=(OTHER_SWIFT_FLAGS='$(inherited) -disable-sandbox')
 fi
 
-TMPDIR="$PWD/.build/tmp" xcodebuild \
-  -project Lumen.xcodeproj \
-  -scheme Lumen \
-  -configuration "$CONFIG" \
-  -derivedDataPath build \
-  "${EXTRA_FLAGS[@]}" \
-  build
+TMPDIR="$PWD/.build/tmp" xcodebuild "${XCODE_ARGS[@]}" build
 
 echo
 echo "Built: $PWD/build/Build/Products/$CONFIG/Lumen.app"
