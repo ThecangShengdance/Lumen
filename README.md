@@ -39,8 +39,16 @@ Steam 大屏幕的实用信息层级，并加入手柄导航、主题切换与�
 
 - macOS 14 Sonoma 或更高版本
 - Xcode 16 或更高版本（项目使用 Xcode 的新式文件系统同步分组）
-- Apple Silicon 或 Intel Mac
+- Apple Silicon 或 Intel Mac（源码构建）
 - 无第三方运行时依赖
+
+## 下载
+
+前往 [GitHub Releases](https://github.com/ThecangShengdance/Lumen/releases/latest) 下载最新的
+`Lumen-1.0.0.zip`。当前预编译包为 Apple Silicon（arm64）版本，Intel Mac 请从源码构建。
+
+首次打开若被 macOS 拦截，请前往「系统设置 → 隐私与安全性」选择「仍要打开」。应用使用 ad-hoc
+签名、未经过 Apple 公证。
 
 ## 运行
 
@@ -79,7 +87,7 @@ open build/Build/Products/Debug/Lumen.app
 ### 分发
 
 构建产物不会纳入版本库（见 `.gitignore`）。需要发布时运行 `./scripts/package.sh`，
-再把生成的 `dist/Lumen-<version>.zip` 上传到 GitHub Releases。
+再把生成的 `dist/Lumen-<version>.zip` 上传到 GitHub Releases。正式下载入口见上方「下载」。
 
 ## 添加游戏
 
