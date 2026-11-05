@@ -39,12 +39,31 @@ enum LumenPanels {
 
     static func importGame(into model: AppModel) {
         guard let url = chooseApp() else { return }
+        guard validateApp(url) else {
+            model.alert = LumenAlert(
+                title: "无法导入这个 App",
+                message: "它不是一个完整的 macOS 应用包（缺少 Info.plist 或可执行文件）。请选择 Applications 文件夹中的游戏 App。"
+            )
+            return
+        }
         model.openEditor(importing: url)
     }
 
+    /// A launcher needs more than an `.app` folder name: the bundle must have
+    /// readable metadata and an executable that `NSWorkspace` can open.
     static func validateApp(_ url: URL) -> Bool {
-        url.pathExtension.lowercased() == "app"
-            && FileManager.default.fileExists(atPath: url.path)
+        guard url.pathExtension.lowercased() == "app" else { return false }
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
+              isDirectory.boolValue else { return false }
+
+        let infoURL = url.appendingPathComponent("Contents/Info.plist")
+        guard FileManager.default.fileExists(atPath: infoURL.path) else { return false }
+        guard let bundle = Bundle(url: url),
+              bundle.bundleIdentifier != nil,
+              let executable = bundle.executableURL,
+              FileManager.default.isExecutableFile(atPath: executable.path) else { return false }
+        return true
     }
 }
 

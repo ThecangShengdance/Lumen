@@ -82,6 +82,7 @@ final class AppModel: ObservableObject {
     @Published var controllerName = ""
     @Published var controllerBattery: Float?
     @Published var isTrailerPresented = false
+    @Published var isIdleCarouselPresented = false
 
     private var isLoaded = false
     private var toastTask: Task<Void, Never>?
@@ -322,6 +323,34 @@ final class AppModel: ObservableObject {
                 selectedGameID = list[target].id
             }
             haptic(.alignment)
+        }
+    }
+
+    // MARK: - Idle carousel
+
+    func beginIdleCarousel() {
+        guard !isBooting,
+              !isIdleCarouselPresented,
+              !isEditorPresented,
+              !isSettingsPresented,
+              !isTrailerPresented,
+              detailGameID == nil,
+              tab == .home,
+              !sortedGames.isEmpty,
+              settings.idleCarouselDelay != .off else { return }
+
+        if !sortedGames.contains(where: { $0.id == selectedGameID }) {
+            selectedGameID = sortedGames.first?.id
+        }
+        withAnimation(.easeInOut(duration: 0.6)) {
+            isIdleCarouselPresented = true
+        }
+    }
+
+    func endIdleCarousel() {
+        guard isIdleCarouselPresented else { return }
+        withAnimation(.easeInOut(duration: 0.35)) {
+            isIdleCarouselPresented = false
         }
     }
 

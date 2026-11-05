@@ -116,6 +116,31 @@ enum ThemeTexture {
     case vignette
 }
 
+enum IdleCarouselDelay: Int, CaseIterable, Identifiable, Codable {
+    case off = 0
+    case oneMinute = 60
+    case threeMinutes = 180
+    case fiveMinutes = 300
+    case tenMinutes = 600
+    case fifteenMinutes = 900
+    case thirtyMinutes = 1800
+
+    var id: Int { rawValue }
+    var seconds: TimeInterval { TimeInterval(rawValue) }
+
+    var title: String {
+        switch self {
+        case .off: "关闭"
+        case .oneMinute: "1 分钟"
+        case .threeMinutes: "3 分钟"
+        case .fiveMinutes: "5 分钟"
+        case .tenMinutes: "10 分钟"
+        case .fifteenMinutes: "15 分钟"
+        case .thirtyMinutes: "30 分钟"
+        }
+    }
+}
+
 struct AppSettings: Codable, Equatable {
     var theme: ThemeStyle = .aurora
     var customAccentHex: String?
@@ -123,6 +148,7 @@ struct AppSettings: Codable, Equatable {
     var grainEnabled: Bool = true
     var clockVisible: Bool = true
     var launchFullScreen: Bool = true
+    var idleCarouselDelay: IdleCarouselDelay = .fiveMinutes
     var hapticsEnabled: Bool = true
     var ambientIntensity: Double = 0.92
     var didSeedShowcase: Bool = false
@@ -137,6 +163,7 @@ struct AppSettings: Codable, Equatable {
         grainEnabled = try c.decodeIfPresent(Bool.self, forKey: .grainEnabled) ?? true
         clockVisible = try c.decodeIfPresent(Bool.self, forKey: .clockVisible) ?? true
         launchFullScreen = try c.decodeIfPresent(Bool.self, forKey: .launchFullScreen) ?? true
+        idleCarouselDelay = IdleCarouselDelay(rawValue: try c.decodeIfPresent(Int.self, forKey: .idleCarouselDelay) ?? 300) ?? .fiveMinutes
         hapticsEnabled = try c.decodeIfPresent(Bool.self, forKey: .hapticsEnabled) ?? true
         ambientIntensity = try c.decodeIfPresent(Double.self, forKey: .ambientIntensity) ?? 0.92
         didSeedShowcase = try c.decodeIfPresent(Bool.self, forKey: .didSeedShowcase) ?? false

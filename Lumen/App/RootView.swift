@@ -8,6 +8,9 @@ struct RootView: View {
     @Environment(\.lumenPalette) private var palette
 
     @State private var keyMonitor: Any?
+    @State private var mouseMonitor: Any?
+    @State private var idleTimer: Timer?
+    @State private var lastActivity = Date()
     @State private var dropTargeted = false
 
     var body: some View {
@@ -20,7 +23,8 @@ struct RootView: View {
             if !model.isBooting,
                model.detailGameID == nil,
                !model.isEditorPresented,
-               !model.isSettingsPresented {
+               !model.isSettingsPresented,
+               !model.isIdleCarouselPresented {
                 LumenTopBar()
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     .transition(.opacity)
@@ -66,6 +70,12 @@ struct RootView: View {
                     .zIndex(50)
             }
 
+            if model.isIdleCarouselPresented {
+                IdleCarouselView()
+                    .transition(.opacity)
+                    .zIndex(60)
+            }
+
             if model.isBooting {
                 BootView()
                     .transition(.opacity)
@@ -89,6 +99,12 @@ struct RootView: View {
         .animation(.lumen, value: model.toast?.id)
         .onAppear(perform: setUp)
         .onDisappear(perform: tearDown)
+        .onChange(of: model.settings.idleCarouselDelay) { _ in
+            noteActivity()
+        }
+        .onChange(of: model.isBooting) { booting in
+            if !booting { noteActivity() }
+        }
         .onDrop(of: [.fileURL], isTargeted: $dropTargeted, perform: handleDrop)
     }
 
@@ -148,9 +164,11 @@ struct RootView: View {
         loadFileURL(from: provider) { url in
             DispatchQueue.main.async {
                 guard let url else { return }
-                guard url.pathExtension.lowercased() == "app",
-                      FileManager.default.fileExists(atPath: url.path) else {
-                    model.showToast("请拖入 macOS 游戏 App（.app）", icon: "exclamationmark.triangle.fill")
+                guard LumenPanels.validateApp(url) else {
+                    model.alert = LumenAlert(
+                        title: "无法导入这个 App",
+                        message: "它不是一个完整的 macOS 应用包（缺少 Info.plist 或可执行文件）。请拖入 Applications 文件夹中的游戏 App。"
+                    )
                     return
                 }
                 model.openEditor(importing: url)
@@ -169,7 +187,15 @@ struct RootView: View {
         model.controllerBattery = gamepad.batteryLevel
 
         gamepad.onAction = { [weak model] action in
-            Task { @MainActor in model?.handle(action) }
+            Task { @MainActor in
+                guard let model else { return }
+                noteActivity()
+                if model.isIdleCarouselPresented {
+                    model.endIdleCarousel()
+                    return
+                }
+                model.handle(action)
+            }
         }
         gamepad.onConnectionChange = { connected, name, battery in
             Task { @MainActor in
@@ -192,6 +218,17 @@ struct RootView: View {
                 return consumed ? nil : event
             }
         }
+
+        if mouseMonitor == nil {
+            mouseMonitor = NSEvent.addLocalMonitorForEvents(
+                matching: [.mouseMoved, .leftMouseDown, .rightMouseDown, .scrollWheel]
+            ) { event in
+                MainActor.assumeIsolated { noteActivity() }
+                return event
+            }
+        }
+
+        startIdleTimer()
     }
 
     private func tearDown() {
@@ -199,6 +236,12 @@ struct RootView: View {
             NSEvent.removeMonitor(keyMonitor)
             self.keyMonitor = nil
         }
+        if let mouseMonitor {
+            NSEvent.removeMonitor(mouseMonitor)
+            self.mouseMonitor = nil
+        }
+        idleTimer?.invalidate()
+        idleTimer = nil
         gamepad.onAction = nil
         gamepad.onConnectionChange = nil
     }
@@ -206,6 +249,12 @@ struct RootView: View {
     // MARK: - Keyboard
 
     private func handleKey(_ event: NSEvent) -> Bool {
+        if model.isIdleCarouselPresented {
+            noteActivity()
+            return true
+        }
+        noteActivity()
+
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let key = event.keyCode
         let characters = event.charactersIgnoringModifiers?.lowercased()
@@ -324,5 +373,43 @@ struct RootView: View {
         default:
             return false
         }
+    }
+
+    // MARK: - Idle timer
+
+    private func startIdleTimer() {
+        idleTimer?.invalidate()
+        idleTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+            Task { @MainActor in checkIdle() }
+        }
+    }
+
+    private func noteActivity() {
+        lastActivity = Date()
+        if model.isIdleCarouselPresented {
+            model.endIdleCarousel()
+        }
+    }
+
+    private func checkIdle() {
+        let delay = model.settings.idleCarouselDelay
+        guard delay != .off else { return }
+        guard NSApp.isActive, !model.isBooting else { return }
+        guard !model.isEditorPresented,
+              !model.isSettingsPresented,
+              !model.isTrailerPresented,
+              model.detailGameID == nil,
+              model.tab == .home,
+              !model.isIdleCarouselPresented else { return }
+        #if DEBUG
+        if let override = ProcessInfo.processInfo.environment["LUMEN_IDLE_SECONDS"].flatMap(Double.init),
+           override > 0 {
+            guard Date().timeIntervalSince(lastActivity) >= override else { return }
+            model.beginIdleCarousel()
+            return
+        }
+        #endif
+        guard Date().timeIntervalSince(lastActivity) >= delay.seconds else { return }
+        model.beginIdleCarousel()
     }
 }

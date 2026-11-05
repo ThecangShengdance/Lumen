@@ -16,6 +16,12 @@ struct GameEditorView: View {
     @State private var customAccent: Color
     @State private var heroDropTargeted = false
     @State private var trailerDropTargeted = false
+    @State private var trailerInspection: TrailerInspection?
+    @State private var trailerNotice: String?
+    @State private var trailerRepairing = false
+    @State private var trailerProgress = 0.0
+    @State private var trailerIsValid = true
+    @State private var trailerTask: Task<Void, Never>?
     @State private var confirmsDelete = false
 
     init(game: Game, isNew: Bool) {
@@ -78,6 +84,16 @@ struct GameEditorView: View {
         }
         .tint(palette.accent)
         .transition(.opacity.combined(with: .scale(scale: 0.985)))
+        .task {
+            #if DEBUG
+            if let testPath = ProcessInfo.processInfo.environment["LUMEN_EDITOR_TRAILER"],
+               !testPath.isEmpty {
+                setTrailer(URL(fileURLWithPath: testPath))
+                return
+            }
+            #endif
+            await prepareExistingTrailer()
+        }
         .confirmationDialog(
             "从游戏库移除「\(draft.title)」？",
             isPresented: $confirmsDelete,
@@ -373,14 +389,41 @@ struct GameEditorView: View {
                     HStack {
                         Spacer()
                         Button("移除宣传片") {
-                            pendingTrailerURL = nil
-                            draft.trailerPath = nil
+                            removeTrailer()
                         }
                         .buttonStyle(.plain)
                         .font(LumenFont.label(8))
                         .foregroundStyle(.white.opacity(0.32))
                     }
                     .padding(.horizontal, 2)
+                }
+
+                if let trailerNotice {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: trailerRepairing ? "wand.and.stars" : (trailerIsValid ? "checkmark.seal" : "exclamationmark.triangle.fill"))
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(trailerRepairing ? palette.accent : (trailerIsValid ? Color(hex: 0x9FE3B0) : Color(hex: 0xFFB18A)))
+                            .padding(.top, 1)
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(trailerNotice)
+                                .font(LumenFont.label(8.2))
+                                .foregroundStyle(.white.opacity(0.52))
+                                .fixedSize(horizontal: false, vertical: true)
+                            if trailerRepairing {
+                                ProgressView(value: trailerProgress)
+                                    .progressViewStyle(.linear)
+                                    .tint(palette.accent)
+                                    .scaleEffect(y: 0.7)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 11)
+                    .padding(.vertical, 9)
+                    .background {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(.white.opacity(0.035))
+                    }
                 }
             }
 
@@ -551,7 +594,9 @@ struct GameEditorView: View {
             }
 
             if !canSave {
-                Text("填写标题后即可保存到游戏库。")
+                Text(trailerRepairing ? "正在准备宣传片，完成后即可保存。"
+                     : (!trailerIsValid ? "请更换一个可播放的宣传片，或移除它后再保存。"
+                                        : "填写标题后即可保存到游戏库。"))
                     .font(LumenFont.label(9))
                     .foregroundStyle(.white.opacity(0.3))
             }
@@ -590,6 +635,8 @@ struct GameEditorView: View {
 
     private var canSave: Bool {
         !draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !trailerRepairing
+            && trailerIsValid
     }
 
     private var hasHero: Bool { pendingHeroURL != nil || draft.heroPath != nil }
@@ -609,9 +656,7 @@ struct GameEditorView: View {
     }
 
     private var appIsValid: Bool {
-        !draft.appPath.isEmpty
-            && FileManager.default.fileExists(atPath: draft.appPath)
-            && URL(fileURLWithPath: draft.appPath).pathExtension.lowercased() == "app"
+        !draft.appPath.isEmpty && LumenPanels.validateApp(URL(fileURLWithPath: draft.appPath))
     }
 
     private var appName: String {
@@ -636,7 +681,89 @@ struct GameEditorView: View {
     }
 
     private func chooseTrailer() {
-        if let url = LumenPanels.chooseTrailer() { pendingTrailerURL = url }
+        if let url = LumenPanels.chooseTrailer() {
+            setTrailer(url)
+        }
+    }
+
+    private func setTrailer(_ url: URL) {
+        trailerTask?.cancel()
+        pendingTrailerURL = url
+        draft.trailerPath = nil
+        trailerIsValid = true
+        inspectTrailer(url)
+    }
+
+    private func removeTrailer() {
+        trailerTask?.cancel()
+        pendingTrailerURL = nil
+        draft.trailerPath = nil
+        trailerInspection = nil
+        trailerNotice = nil
+        trailerRepairing = false
+        trailerProgress = 0
+        trailerIsValid = true
+    }
+
+    private func prepareExistingTrailer() async {
+        guard pendingTrailerURL == nil,
+              let path = draft.trailerPath,
+              !path.isEmpty else { return }
+        let url = URL(fileURLWithPath: path)
+        guard FileManager.default.fileExists(atPath: path) else {
+            draft.trailerPath = nil
+            trailerIsValid = true
+            trailerNotice = "原来的宣传片文件已丢失，请重新选择视频。"
+            return
+        }
+        inspectTrailer(url, assignPending: false)
+    }
+
+    private func inspectTrailer(_ url: URL, assignPending: Bool = true) {
+        if assignPending { pendingTrailerURL = url }
+        trailerTask?.cancel()
+        trailerTask = Task { @MainActor in
+            trailerInspection = nil
+            trailerNotice = "正在校验视频…"
+            trailerRepairing = false
+            trailerProgress = 0
+            trailerIsValid = true
+
+            do {
+                let inspection = try await TrailerInspector.inspect(url)
+                guard !Task.isCancelled else { return }
+                trailerInspection = inspection
+
+                if inspection.needsRepair {
+                    trailerRepairing = true
+                    trailerNotice = "检测到分片 MP4：系统只能读取 \(inspection.durationLabel)，正在自动修复…"
+                    let repaired = try await TrailerInspector.repair(url) { fraction, message in
+                        Task { @MainActor in
+                            guard !Task.isCancelled else { return }
+                            trailerProgress = fraction
+                            trailerNotice = message
+                        }
+                    }
+                    guard !Task.isCancelled else { return }
+                    pendingTrailerURL = repaired
+                    let fixed = try await TrailerInspector.inspect(repaired)
+                    guard !Task.isCancelled else { return }
+                    trailerInspection = fixed
+                    trailerRepairing = false
+                    trailerProgress = 1
+                    trailerNotice = "已自动修复分片视频 · 可播放时长 \(fixed.durationLabel)。保存后会加入游戏库。"
+                } else if inspection.isFragmented {
+                    trailerNotice = "分片 MP4 · 可完整播放（\(inspection.durationLabel)）"
+                } else {
+                    trailerNotice = "视频完整 · \(inspection.durationLabel)"
+                }
+            } catch {
+                guard !Task.isCancelled else { return }
+                trailerRepairing = false
+                trailerIsValid = false
+                trailerNotice = "视频校验失败：\(error.localizedDescription)"
+            }
+        }
     }
 
     private func chooseIcon() {
@@ -647,7 +774,14 @@ struct GameEditorView: View {
     }
 
     private func chooseApp() {
-        guard let url = LumenPanels.chooseApp(), LumenPanels.validateApp(url) else { return }
+        guard let url = LumenPanels.chooseApp() else { return }
+        guard LumenPanels.validateApp(url) else {
+            model.alert = LumenAlert(
+                title: "无法导入这个 App",
+                message: "它不是一个完整的 macOS 应用包（缺少 Info.plist 或可执行文件）。请选择 Applications 文件夹中的游戏 App。"
+            )
+            return
+        }
         let info = MediaStore.shared.inspectApp(at: url)
         draft.appPath = url.path
         if draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -679,13 +813,13 @@ struct GameEditorView: View {
             guard let url,
                   let type = UTType(filenameExtension: url.pathExtension),
                   type.conforms(to: .movie) || type.conforms(to: .video) else { return }
-            pendingTrailerURL = url
+            setTrailer(url)
         }
         return true
     }
 
     private func save() {
-        guard canSave else { return }
+        guard canSave, !trailerRepairing, trailerIsValid else { return }
         var payload = draft
         payload.title = payload.title.trimmingCharacters(in: .whitespacesAndNewlines)
         payload.tagline = payload.tagline.trimmingCharacters(in: .whitespacesAndNewlines)

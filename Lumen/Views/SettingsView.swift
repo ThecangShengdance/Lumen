@@ -444,6 +444,13 @@ struct SettingsView: View {
                     subtitle: "下次启动直接进入全屏，也可以随时用系统快捷键切换",
                     isOn: $model.settings.launchFullScreen
                 )
+                divider
+                settingsChoice(
+                    icon: "rectangle.stack.badge.play",
+                    title: "闲置轮播",
+                    subtitle: "主界面无操作后自动浏览游戏，不会启动游戏",
+                    selection: $model.settings.idleCarouselDelay
+                )
             }
 
             VStack(alignment: .leading, spacing: 12) {
@@ -539,7 +546,7 @@ struct SettingsView: View {
                         .font(LumenFont.display(34, weight: .semibold))
                         .tracking(-1)
                         .foregroundStyle(.white.opacity(0.95))
-                    Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.1") · Built for macOS")
+                    Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.2") · Built for macOS")
                         .font(LumenFont.mono(9))
                         .foregroundStyle(.white.opacity(0.3))
                 }
@@ -613,6 +620,63 @@ struct SettingsView: View {
                 .toggleStyle(.switch)
                 .tint(palette.accent)
                 .controlSize(.small)
+        }
+        .padding(.vertical, 11)
+    }
+
+    private func settingsChoice(
+        icon: String,
+        title: String,
+        subtitle: String,
+        selection: Binding<IdleCarouselDelay>
+    ) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(palette.accent.opacity(0.72))
+                .frame(width: 24, height: 24)
+                .background(Circle().fill(.white.opacity(0.05)))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(LumenFont.text(11, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.76))
+                Text(subtitle)
+                    .font(LumenFont.label(8.5))
+                    .foregroundStyle(.white.opacity(0.28))
+            }
+            Spacer()
+            Menu {
+                ForEach(IdleCarouselDelay.allCases) { delay in
+                    Button {
+                        selection.wrappedValue = delay
+                    } label: {
+                        if selection.wrappedValue == delay {
+                            Label(delay.title, systemImage: "checkmark")
+                        } else {
+                            Text(delay.title)
+                        }
+                    }
+                }
+            } label: {
+                HStack(spacing: 7) {
+                    Text(selection.wrappedValue.title)
+                        .font(LumenFont.mono(9, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.64))
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 8, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.3))
+                }
+                .padding(.horizontal, 11)
+                .padding(.vertical, 6)
+                .background {
+                    Capsule().fill(.white.opacity(0.06))
+                }
+                .overlay {
+                    Capsule().strokeBorder(.white.opacity(0.08), lineWidth: 1)
+                }
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
         }
         .padding(.vertical, 11)
     }
