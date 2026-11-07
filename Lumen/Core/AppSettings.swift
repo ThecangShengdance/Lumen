@@ -31,10 +31,10 @@ enum ThemeStyle: String, CaseIterable, Codable, Identifiable {
 
     var inspiration: String {
         switch self {
-        case .aurora: "PlayStation 灵感"
-        case .carbon: "Xbox 灵感"
-        case .prism: "Switch 灵感"
-        case .deck: "Steam 灵感"
+        case .aurora: "影院光晕"
+        case .carbon: "深色质感"
+        case .prism: "明快配色"
+        case .deck: "大屏层级"
         case .noir: "Lumen 签名"
         }
     }
